@@ -98,11 +98,11 @@ def generate_launch_description():
     # Launch them all!
     return LaunchDescription([
         # Declare launch arguments
-        declare_rviz,
+        # declare_rviz,
         declare_world,
 
         # Launch the nodes
-        rviz2,
+        # rviz2,
         rsp,
         gazebo_server,
         gazebo_client,

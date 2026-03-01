@@ -5,7 +5,6 @@ amcl:
     alpha3: 0.2
     alpha4: 0.2
     alpha5: 0.2
-    # base_frame_id: "base_footprint"
     base_frame_id: "base_link"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
@@ -374,7 +373,6 @@ velocity_smoother:
 
 collision_monitor:
   ros__parameters:
-    # base_frame_id: "base_footprint"
     base_frame_id: "base_link"
     odom_frame_id: "odom"
     cmd_vel_in_topic: "cmd_vel_smoothed"
@@ -459,7 +457,6 @@ docking_server:
 
 loopback_simulator:
   ros__parameters:
-    # base_frame_id: "base_footprint"
     base_frame_id: "base_link"
     odom_frame_id: "odom"
     map_frame_id: "map"

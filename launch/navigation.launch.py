@@ -1,74 +1,104 @@
+import os
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch.substitutions import PathJoinSubstitution
-from launch_ros.substitutions import FindPackageShare
+from launch.actions import TimerAction
 
 
 def generate_launch_description():
 
-    use_sim_time = True
+    package_name = 'diff_drive_robot'
+    pkg_share = get_package_share_directory(package_name)
+    nav2_bringup_dir = get_package_share_directory('nav2_bringup')
 
-    diff_drive_pkg = FindPackageShare('diff_drive_robot')
-    nav2_pkg = FindPackageShare('nav2_bringup')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    params_file = LaunchConfiguration('params_file')
+    map_yaml_file = LaunchConfiguration('map')
 
-    # 1Robot + mapping
-    robot_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                diff_drive_pkg,
-                'launch',
-                'robot.launch.py'
-            ])
-        ),
-        launch_arguments={'use_sim_time': 'true'}.items()
+    declare_use_sim_time = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='true'
     )
 
-    # Nav2 bringup
-    nav2_launch = IncludeLaunchDescription(
+    declare_params_file = DeclareLaunchArgument(
+        'params_file',
+        default_value=os.path.join(pkg_share, 'config', 'nav2_params.yaml')
+    )
+
+    declare_map_yaml = DeclareLaunchArgument(
+        'map',
+        default_value=os.path.join(pkg_share, 'maps', 'my_map.yaml')
+    )
+
+    # --- NAV2 ---
+    nav2_bringup_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                nav2_pkg,
-                'launch',
-                'bringup_launch.py'
-            ])
+            os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
         ),
         launch_arguments={
-            'map': '/home/pg/my_map.yaml',
-            'use_sim_time': 'true',
-             'params_file': PathJoinSubstitution([
-                diff_drive_pkg,
-                'config',
-                'nav2_params.yaml'
-                ])
+            'use_sim_time': use_sim_time,
+            'params_file': params_file,
+            'map': map_yaml_file,
+            'autostart': 'true',
+            'use_composition': 'False'
         }.items()
     )
 
-    # RViz
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        arguments=[
-            '-d',
-            '/opt/ros/jazzy/share/nav2_bringup/rviz/nav2_default_view.rviz'
-        ],
-        parameters=[{'use_sim_time': use_sim_time}],
-        output='screen'
+    # --- RVIZ ---
+    rviz_node = TimerAction(
+        period=5.0,   # wait 5 seconds before launching RViz
+        actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                arguments=[
+                    '-d',
+                    os.path.join(nav2_bringup_dir, 'rviz', 'nav2_default_view.rviz')
+
+                ],
+                parameters=[{'use_sim_time': use_sim_time}],
+                output='screen'
+            )
+        ]
+)
+
+    robot_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_share, 'launch', 'robot.launch.py')
+        ),
+        launch_arguments={'use_sim_time': 'true'}.items()
+)
+
+    # --- NAV2 (delay start so robot TF is ready) ---
+    nav2_launch = TimerAction(
+        period=5.0,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
+                ),
+                launch_arguments={
+                    'use_sim_time': use_sim_time,
+                    'params_file': params_file,
+                    'map': map_yaml_file,
+                    'autostart': 'true',
+                    'use_composition': 'False'
+                }.items()
+            )
+        ]
     )
-
-    motor_node = Node(
-        package='diff_drive_robot',
-        executable='motor_node.py',
-        name='motor_node',
-        output='screen'
-    )
-
-
 
     return LaunchDescription([
+        declare_use_sim_time,
+        declare_params_file,
+        declare_map_yaml,
         robot_launch,
         nav2_launch,
-        rviz,
-        motor_node,
+        rviz_node
     ])
+
+
